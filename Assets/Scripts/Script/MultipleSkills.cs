@@ -11,6 +11,8 @@ public class MultipleSkills : MonoBehaviourPunCallbacks
     AutoProcessing _autoProcessing = null;
     public List<SkillInfo> SkillInfos_used { get; private set; } = new List<SkillInfo>();
     public List<SkillInfo> StackedSkillInfos = new List<SkillInfo>();
+    //Non-turn player's skills of this batch that wait until the turn player's skills are resolved (read by PendingTriggers)
+    public List<SkillInfo> WaitingSkillInfos { get; private set; } = new List<SkillInfo>();
     public bool IsOnlyHandEffectStacked => StackedSkillInfos.Every(skillInfo =>
         skillInfo.CardEffect != null && skillInfo.CardEffect.EffectSourceCard != null && CardEffectCommons.IsExistOnHand(skillInfo.CardEffect.EffectSourceCard) && skillInfo.CardEffect.EffectDiscription.Contains("[Hand]"));
 
@@ -52,7 +54,12 @@ public class MultipleSkills : MonoBehaviourPunCallbacks
             }
         }
 
+        WaitingSkillInfos = NonTurnPlayerSkillInfos;
+
         yield return ContinuousController.instance.StartCoroutine(ActivateMultipleSkills_OnePlayer(TurnPlayerSkillInfos, GManager.instance.turnStateMachine.gameContext.TurnPlayer, CheckNewTriggredSkill_mainStack, skipCondition));
+
+        WaitingSkillInfos = new List<SkillInfo>();
+
         yield return ContinuousController.instance.StartCoroutine(ActivateMultipleSkills_OnePlayer(NonTurnPlayerSkillInfos, GManager.instance.turnStateMachine.gameContext.NonTurnPlayer, CheckNewTriggredSkill_mainStack, skipCondition));
 
         SkillInfos_used = new List<SkillInfo>();
