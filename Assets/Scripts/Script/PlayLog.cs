@@ -41,23 +41,33 @@ public class PlayLog : MonoBehaviour
     //16250, 13000
     int _maxLogCharacterLength = 11000;
 
-    #region Export log
+    #region Export buttons
     //The whole log of the game without links, as _logList is trimmed to _maxLogCharacterLength
     List<string> _fullLogList = new List<string>();
 
-    //Height taken from the bottom of the log to make room for the button
-    const float ExportLogButtonAreaHeight = 60f;
-    static readonly Vector2 ExportLogButtonSize = new Vector2(280f, 50f);
-    static readonly Color ExportLogButtonColor = new Color(0.12f, 0.16f, 0.24f, 1f);
+    //Height taken from the bottom of the log to make room for the buttons
+    const float ExportButtonAreaHeight = 60f;
+    const float ExportButtonSpacing = 12f;
+    static readonly Vector2 ExportButtonSize = new Vector2(260f, 50f);
+    static readonly Color ExportButtonColor = new Color(0.12f, 0.16f, 0.24f, 1f);
 
     TMP_Text _exportLogButtonText;
+    TMP_Text _exportGamestateButtonText;
 
     string ExportLogButtonLabel => LocalizeUtility.GetLocalizedString(
         EngMessage: "Export Log",
         JpnMessage: "ログをコピー");
 
-    //The button is built from code, so no scene or prefab has to be changed
-    void CreateExportLogButton()
+    string ExportGamestateButtonLabel => LocalizeUtility.GetLocalizedString(
+        EngMessage: "Export Gamestate",
+        JpnMessage: "盤面をコピー");
+
+    string CopiedLabel => LocalizeUtility.GetLocalizedString(
+        EngMessage: "Copied!",
+        JpnMessage: "コピーしました!");
+
+    //The buttons are built from code, so no scene or prefab has to be changed
+    void CreateExportButtons()
     {
         if (_exportLogButtonText != null)
         {
@@ -66,10 +76,20 @@ public class PlayLog : MonoBehaviour
 
         RectTransform scrollRect = _scroll.GetComponent<RectTransform>();
 
-        scrollRect.sizeDelta -= new Vector2(0f, ExportLogButtonAreaHeight);
-        scrollRect.anchoredPosition += new Vector2(0f, ExportLogButtonAreaHeight / 2f);
+        scrollRect.sizeDelta -= new Vector2(0f, ExportButtonAreaHeight);
+        scrollRect.anchoredPosition += new Vector2(0f, ExportButtonAreaHeight / 2f);
 
-        GameObject buttonObject = new GameObject("ExportLogButton", typeof(RectTransform), typeof(Image), typeof(Button));
+        float offsetX = (ExportButtonSize.x + ExportButtonSpacing) / 2f;
+
+        _exportLogButtonText = CreateExportButton("ExportLogButton", -offsetX, ExportLogButtonLabel, OnClickExportLogButton);
+        _exportGamestateButtonText = CreateExportButton("ExportGamestateButton", offsetX, ExportGamestateButtonLabel, OnClickExportGamestateButton);
+    }
+
+    TMP_Text CreateExportButton(string objectName, float offsetX, string label, UnityEngine.Events.UnityAction onClick)
+    {
+        RectTransform scrollRect = _scroll.GetComponent<RectTransform>();
+
+        GameObject buttonObject = new GameObject(objectName, typeof(RectTransform), typeof(Image), typeof(Button));
         buttonObject.layer = gameObject.layer;
 
         RectTransform buttonRect = buttonObject.GetComponent<RectTransform>();
@@ -77,17 +97,17 @@ public class PlayLog : MonoBehaviour
         buttonRect.anchorMin = scrollRect.anchorMin;
         buttonRect.anchorMax = scrollRect.anchorMax;
         buttonRect.pivot = new Vector2(0.5f, 0.5f);
-        buttonRect.sizeDelta = ExportLogButtonSize;
+        buttonRect.sizeDelta = ExportButtonSize;
         buttonRect.anchoredPosition = new Vector2(
-            scrollRect.anchoredPosition.x,
-            scrollRect.anchoredPosition.y - scrollRect.sizeDelta.y / 2f - ExportLogButtonAreaHeight / 2f);
+            scrollRect.anchoredPosition.x + offsetX,
+            scrollRect.anchoredPosition.y - scrollRect.sizeDelta.y / 2f - ExportButtonAreaHeight / 2f);
 
         Image buttonImage = buttonObject.GetComponent<Image>();
-        buttonImage.color = ExportLogButtonColor;
+        buttonImage.color = ExportButtonColor;
 
         Button button = buttonObject.GetComponent<Button>();
         button.targetGraphic = buttonImage;
-        button.onClick.AddListener(OnClickExportLogButton);
+        button.onClick.AddListener(onClick);
 
         GameObject textObject = new GameObject("Text", typeof(RectTransform));
         textObject.layer = gameObject.layer;
@@ -101,45 +121,77 @@ public class PlayLog : MonoBehaviour
 
         TextMeshProUGUI buttonText = textObject.AddComponent<TextMeshProUGUI>();
         buttonText.font = _logText.font;
-        buttonText.fontSize = 30;
+        buttonText.fontSize = 28;
         buttonText.alignment = TextAlignmentOptions.Center;
         buttonText.color = Color.white;
         buttonText.raycastTarget = false;
-        buttonText.text = ExportLogButtonLabel;
+        buttonText.text = label;
 
-        _exportLogButtonText = buttonText;
+        return buttonText;
     }
 
     public void OnClickExportLogButton()
     {
         GUIUtility.systemCopyBuffer = string.Concat(_fullLogList).Trim();
 
+        ShowExportResult(_exportLogButtonText, CopiedLabel);
+    }
+
+    public void OnClickExportGamestateButton()
+    {
+        string result = CopiedLabel;
+
+        try
+        {
+            GUIUtility.systemCopyBuffer = GameStateExporter.Export();
+        }
+
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+
+            result = LocalizeUtility.GetLocalizedString(
+                EngMessage: "Export failed",
+                JpnMessage: "コピーに失敗しました");
+        }
+
+        ShowExportResult(_exportGamestateButtonText, result);
+    }
+
+    void ShowExportResult(TMP_Text buttonText, string result)
+    {
         if (GManager.instance != null)
         {
             GManager.instance.PlayDecisionSE();
         }
 
-        _exportLogButtonText.text = LocalizeUtility.GetLocalizedString(
-            EngMessage: "Copied to clipboard!",
-            JpnMessage: "コピーしました!");
+        ResetExportButtonLabels();
 
-        StopCoroutine(nameof(ResetExportLogButtonLabel));
-        StartCoroutine(nameof(ResetExportLogButtonLabel));
+        buttonText.text = result;
+
+        StopCoroutine(nameof(ResetExportButtonLabelsCoroutine));
+        StartCoroutine(nameof(ResetExportButtonLabelsCoroutine));
     }
 
-    IEnumerator ResetExportLogButtonLabel()
+    IEnumerator ResetExportButtonLabelsCoroutine()
     {
         yield return new WaitForSecondsRealtime(1.5f);
 
-        _exportLogButtonText.text = ExportLogButtonLabel;
+        ResetExportButtonLabels();
     }
 
-    private void OnEnable()
+    void ResetExportButtonLabels()
     {
         if (_exportLogButtonText != null)
         {
             _exportLogButtonText.text = ExportLogButtonLabel;
+            _exportGamestateButtonText.text = ExportGamestateButtonLabel;
         }
+    }
+
+    private void OnEnable()
+    {
+        ResetExportButtonLabels();
     }
     #endregion
 
@@ -216,7 +268,9 @@ public class PlayLog : MonoBehaviour
 
         _fullLogList = new List<string>();
 
-        CreateExportLogButton();
+        EffectHistory.Clear();
+
+        CreateExportButtons();
 
         OnAddLog += AddLogString;
         OnLinkPressed += ShowCard;

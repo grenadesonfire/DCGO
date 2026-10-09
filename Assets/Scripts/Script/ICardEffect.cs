@@ -1324,6 +1324,8 @@ public static class ActivateICardEffectExtensionClass
             if (card != null)
             {
                 PlayLog.OnAddLog?.Invoke($"\nEffect:\n{card.BaseENGCardNameFromEntity}({card.CardID})\n\"{((ICardEffect)activateICardEffect).EffectName}\"\n");
+
+                EffectHistory.Record((ICardEffect)activateICardEffect);
             }
 
             #endregion
