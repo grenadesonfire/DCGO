@@ -249,18 +249,18 @@ public static class GameStateExporter
             text.AppendLine($"{Indent}- Linked cards: {CardLabels(permanent.LinkedCards)}");
         }
 
-        #region Effects used by the cards of this permanent
+        #region Effects used by the cards of this permanent this turn (the whole game is listed per player)
         List<string> usedLines = new List<string>();
 
         foreach (EffectHistory.Entry entry in EffectHistory.Entries)
         {
-            if (permanent.cardSources.Contains(entry.Card))
+            if (entry.Turn == turnCount && permanent.cardSources.Contains(entry.Card))
             {
-                usedLines.Add($"Turn {entry.Turn} - {CardLabel(entry.Card)}: \"{entry.EffectName}\"");
+                usedLines.Add($"{CardLabel(entry.Card)}: \"{entry.EffectName}\"");
             }
         }
 
-        text.AppendLine($"{Indent}- Effects used:");
+        text.AppendLine($"{Indent}- Effects used this turn:");
 
         AppendLinesOrNone(text, usedLines, Indent + Indent);
         #endregion
@@ -284,7 +284,7 @@ public static class GameStateExporter
             }
         }
 
-        text.AppendLine($"{Indent}- Uses counted this turn (turn {turnCount}, for once per turn limits):");
+        text.AppendLine($"{Indent}- Uses counted for once per turn limits:");
 
         AppendLinesOrNone(text, countedLines, Indent + Indent);
         #endregion
